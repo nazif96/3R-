@@ -14,7 +14,7 @@ Le projet est structuré en deux phases :
 Analyse des travaux académiques existants sur la relation entre travail étudiant et parcours universitaire, afin de cadrer les mécanismes déjà identifiés (effets financiers, contraintes de temps, motivation, sélection).
 
 ### 2. Analyse empirique
-Travail sur des données de l'INSEE pour identifier les variables pertinentes (travail étudiant et autres facteurs socio-démographiques et académiques) et mesurer leur effet sur la réussite universitaire.
+Travail sur des données de **l'enquêtes de génération 2010** pour identifier les variables pertinentes (travail étudiant et autres facteurs socio-démographiques et académiques) et mesurer leur effet sur la réussite universitaire.
 
 **Modèles économétriques utilisés :**
 - **MCO (Moindres Carrés Ordinaires)** — estimation de référence
