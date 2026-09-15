@@ -1,0 +1,651 @@
+---
+title: "Le Travail Étudiant et la Réussite Universitaire"
+subtitle: ""
+author: "Youssef DIR & Nazifou AFOLABI"
+output:
+  revealjs::revealjs_presentation:
+    css: styles.css
+    slide-number: yes
+    mermaid-format: png
+    chalkboard:
+      toggleChalkboardButton: yes
+    transition: slide
+    background-transition: fade
+    theme: sky
+    incremental: yes
+    footer: "--- MACHINGLEARNING ---"
+    controls: yes
+    preview-links: auto
+    reference-location: document
+    pandoc_args: 
+      - "--slide-level=2"
+      - "--pdf-engine=xelatex"
+header-includes:
+  - \usepackage{xcolor}
+---
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+options(warn = -1)
+
+# Charger les packages
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(readr)
+library(dplyr)
+
+# Réactiver l'affichage des avertissements (optionnel)
+options(warn = 0)
+```
+
+# Plan{.slide}
+
+::: {style="text-align: center;"}
+
+
+- Revue de littérature
+- Les données et les statistiques
+- Les résultats
+
+:::
+
+---
+
+# 
+
+::: {style="height: 110px;"}
+:::
+
+::: {style="text-align: center;"}
+<h1 style="font-size: 72px; margin-top: 50px;">
+
+Les principaux déterminants de la réussite
+
+</h1>
+:::
+
+# Tableau des déterminants
+
+::: {style="height: 30px;"}
+:::
+
+```{r,echo=FALSE}
+df <- data.frame(
+  Variables = c("Age", "genre", "Niveau d'étude", "Filière", "Travail étudiant"),
+  Auteurs = c("sabia (2009)", "Béduwé et Giret (2004)", "Body et al (2014)", "Lixi, (2003)","Beffy et al (2009)"),
+  `Effet sur le Travail` = c("Significatif", "Significatif", "Non significatif","Significatif", ""),
+  `Effet sur la réussite` = c("Significatif","Significatif", "Significatif", "Significatif", "significatif")
+)
+
+kable(df, "html", row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+---
+
+# Les modèles économétriques {.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+
+- MCO 
+- Les effets fixes 
+- Modèle des risques proportionnels de Cox
+- Effets aléatoires
+- **Probit bivarié** 
+- **Probit - Probit ordonné**
+
+:::
+
+---
+
+# Probit bivarié récursif {.slide}
+
+<div align="left">
+
+\[
+y_{i1} = \begin{cases}  1 & \text{si } y_{i1}^* > 0 \\
+        0 & \text{si } y_{i1}^* \leq 0 \end{cases}
+\]
+
+\[
+y_{i2} = \begin{cases}  1 & \text{si } y_{i2}^* > 0 \\
+        0 & \text{si } y_{i2}^* \leq 0 \end{cases}
+\]
+
+Avec : 
+
+\[
+y_{i1}^* =  X_{i1}\beta_1 + u_{i1} \quad (1)
+\]
+
+\[
+y_{i2}^* = \theta y_{i1} +  X_{i2}\beta_2 + u_{i2} \quad (2)
+\]
+
+</div>
+
+---
+
+# Modèle probit-probit ordonné {.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+<div align="left">
+
+Un modèle avec une variable catégorielle : le temps de travail
+
+\[
+\text{Pour tout } k \in \{0, 1, 2\}, 
+\]
+
+\[
+Y_1 = k \Leftrightarrow s_k < Y_1^* = X_1\beta + u_{i1} \leq s_{k+1}
+\]
+
+
+- Si $k = 0$, $Y_1^*$ représente l'absence de travail.
+- Si $k = 1$, $Y_1^* \leq 16$ heures.
+- Si $k = 2$, $Y_1^* \geq 16$ heures.
+
+
+</div>
+:::
+---
+
+# Modèle probit-probit ordonné {.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+
+On note  dans la suite les variables indicatrices.
+
+- $Y_1^{1}$  le fait de travailler moins de 16 heures.
+- $Y_{1}^{2}$ le fait de travailler plus de 16 heures.
+
+:::
+---
+
+# Modèle probit-probit ordonné{.slide}
+::: {.fragment fragment-index="1" style="text-align: left;"}
+
+Une variable catégorielle : la réussite universitaire 
+
+\[
+y_{i2} = \begin{cases}  1 & \text{si } y_{i2}^* > 0 \\
+        0 & \text{si } y_{i2}^* \leq 0 \end{cases}
+\]
+
+avec:
+
+\[
+y_{i2}^* = Y_1^1\beta_{20}^1 + Y_1^2\beta_{20}^2 + X_2\beta_{21} + u_{i2}
+\]
+:::
+--- 
+
+# La fonction de vraisemblance{.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+La contribution individuelle à la vraisemblance \( P_1 \) s’écrit, en notant \( \Phi_2(.,.,\sigma_{12}) \) la fonction de répartition de la loi normale bivariée \( N(0, \Sigma) \), l’indice individuel \( i \) étant omis ci-après afin d’alléger les notations:
+:::
+
+::: {.fragment fragment-index="2" style="text-align: left;"}
+\begin{align*}
+    P_1 &= \Phi_2(S_{y_1+1} - X_1\beta_1, -Y_{1}^1\beta_{20}^1 - Y_{1}^2\beta_{20}^2 - X_2\beta_{21}, \sigma_{12}) \\
+    &\quad - \Phi_2(S_{y_1} - X_1\beta_1, - Y_{1}^1\beta_{20}^1 - Y_{1}^2\beta_{20}^2 - X_2\beta_{21}, \sigma_{12})
+\end{align*}
+:::
+
+---
+
+# La fonction de vraisemblance{.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+De même, par symétrie, la contribution individuelle à la
+vraisemblance d’une observation du sous-échantillon \(I_2\): 
+
+
+\begin{align*}
+    P_2 &= \Phi_2(S_{y_1+1} - X_1\beta_1, Y_{1}^1\beta_{20}^1 + Y_{1}^2\beta_{20}^2 + X_2\beta_{21}, -\sigma_{12}) \\
+    &\quad - \Phi_2(S_{y_1} - X_1\beta_1, Y_{1}^1\beta_{20}^1 + Y_{1}^2\beta_{20}^2 + X_2\beta_{21}, -\sigma_{12})
+\end{align*}
+
+:::
+---
+
+# {.slide}
+
+::: {style="height: 110px;"}
+:::
+
+::: {style="text-align: center;"}
+<h2 style="font-size: 72px; margin-top: 50px;">
+
+Les Données et les Travaux empiriques
+
+</h2>
+:::
+---
+
+# Les données{.slide}
+
+::: {.fragment fragment-index="1" style="text-align: left;"}
+
+- Base de données : enquêtes de génération (2010)
+- Sélection des variables pertinentes : 11 variables
+- échantillon final (2548 observations avec 11 variables) 
+  
+::: 
+
+--- 
+
+# {.slides}
+
+<div>
+  <table>
+    <thead>
+      <tr>
+        <th>Variables</th>
+        <th>Types</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Homme</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Master</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Travail</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Travail ordonné</td>
+        <td>Quantitative</td>
+      </tr>
+      <tr>
+        <td>Réussite</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Filière</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Enfant</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Étranger</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Bac</td>
+        <td>Qualitative</td>
+      </tr>
+      <tr>
+        <td>Age</td>
+        <td>catégorielle</td>
+      </tr>
+      <tr>
+        <td>Parents supérieurs</td>
+        <td>polytomique</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+---
+
+# {.slides}
+
+::: {style="height: 110px;"}
+:::
+
+::: {style="text-align: center;"}
+<h2 style="font-size: 72px; margin-top: 50px;">
+
+Les Statistiques descriptives
+
+</h2>
+:::
+
+# {.slides}
+<div>
+  <table>
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Modalités</th>
+        <th>Observations N=2548 (\%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">Homme</td>
+        <td>Non </td>
+        <td>1249 (49\%)</td>
+      </tr>
+      <tr>
+        <td>Oui </td>
+        <td>1299 (51\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="2">Master</td>
+        <td>Non </td>
+        <td>1178 (46\%)</td>
+      </tr>
+      <tr>
+        <td>Oui</td>
+        <td>1370 (54\%) </td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="2">Travail</td>
+        <td>Non</td>
+        <td>2077 (82\%)</td>
+      </tr>
+      <tr>
+        <td>Oui</td>
+        <td>471 (18\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="2">Reussite</td>
+        <td>Non</td>
+        <td>248 (10\%)</td>
+      </tr>
+      <tr>
+        <td>Oui</td>
+        <td>2300(90\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="3">Travail ordonné</td>
+        <td>Non</td>
+        <td>2077 (82\%)</td>
+      </tr>
+      <tr>
+        <td>Oui (=1)</td>
+        <td>390 (15\%)</td>
+      </tr>
+      <tr>
+        <td>Oui (\(\geq\) 2)</td>
+        <td>81 (3\%)</td>
+      </tr>
+      <!-- Ajoutez le reste des lignes du tableau de la même manière pour les autres variables -->
+    </tbody>
+  </table>
+</div>
+
+---
+
+# {.slide}
+<div>
+  <table>
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Modalités</th>
+        <th>Observations N=2548 (\%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="6">Filière</td>
+        <td>Droit_eco_ges</td>
+        <td>422 (17\%)</td>
+      </tr>
+      <tr>
+        <td>Sce sociales</td>
+        <td>411 (16\%)</td>
+      </tr>
+      <tr>
+        <td>Sciences</td>
+        <td>386 (15\%)</td>
+      </tr>
+      <tr>
+        <td>Lettres_langues</td>
+        <td>137 (5.4\%)</td>
+      </tr>
+      <tr>
+        <td>Iut</td>
+        <td>112 (4.4\%)</td>
+      </tr>
+      <tr>
+        <td>Autres</td>
+        <td>1080 (42\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="2">Enfant</td>
+        <td>Non</td>
+        <td>2406 (94\%)</td>
+      </tr>
+      <tr>
+        <td>Oui</td>
+        <td>142 (6\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="2">Etranger</td>
+        <td>Non</td>
+        <td>1497 (59\%)</td>
+      </tr>
+      <tr>
+        <td>Oui</td>
+        <td>1051 (41\%)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+---
+
+# {.slide}
+
+<div>
+  <table>
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Modalités</th>
+        <th>Observations N=2548 (\%)</th>
+      </tr>
+    </thead>
+    <tbody> 
+      <tr>
+        <td rowspan="3">Bac</td>
+        <td>Générale</td>
+        <td>1849 (73\%)</td>
+      </tr>
+      <tr>
+        <td>Professionnel</td>
+        <td>86 (3.4\%)</td>
+      </tr>
+      <tr>
+        <td>Technologique</td>
+        <td>613 (24\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="3">parents sup</td>
+        <td>Aucun</td>
+        <td>1285(50\%)</td>
+      </tr>
+      <tr>
+        <td>Au moins un </td>
+        <td>599 (24\%) </td>
+      </tr>
+      <tr>
+        <td>Les deux</td>
+        <td>664 (26\%)</td>
+      </tr>
+      <!-- Nouvelle ligne -->
+      <tr>
+        <td rowspan="4">Âge</td>
+        <td>(17,21]</td>
+        <td>565 (22\%)</td>
+      </tr>
+      <tr>
+        <td>(21,25]</td>
+        <td>1701 (67\%)</td>
+      </tr>
+      <tr>
+        <td>(25,29]</td>
+        <td>259 (10\%)</td>
+      </tr>
+      <tr>
+        <td>(29,34]</td>
+        <td>23 (1\%)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Statistiques descriptives</p>
+</div>
+---
+
+# {.slide}
+
+<div>
+  <h2>Master - Réussite </h2>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\master_reussite.png" alt="Description de l'image">
+</div>
+
+---
+
+# {.slides}
+
+<div>
+  <h2>Filière - Réussite </h2>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\filiere_R.png" alt="Description de l'image">
+</div>
+---
+
+# {.slide}
+
+<div>
+  <h2>Master - Travail </h2>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\master_taf.png" alt="Description de l'image">
+</div>
+
+---
+
+# {.slides}
+
+<div>
+  <h2>Filière - Travail </h2>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\filiere_T.png" alt="Description de l'image">
+</div>
+---
+
+# {.slide}
+
+::: {style="height: 30px;"}
+:::
+
+<div>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\Rplot02.png" alt="Description de l'image">
+</div>
+---
+
+# {.slide}
+
+::: {style="height: 30px;"}
+:::
+
+<div>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\Rplot01.png" alt="Description de l'image">
+</div>
+---
+
+# Matrice de corrélation{.slide}
+
+::: {style="height: 30px;"}
+:::
+
+<div>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\Rplot04.png" alt="Description de l'image">
+</div>
+--- 
+
+# {.slide}
+
+::: {style="height: 110px;"}
+:::
+
+::: {style="text-align: center;"}
+<h2 style="font-size: 72px; margin-top: 50px;">
+
+Les modélisations économétriques.
+
+</h2>
+
+- Sans prise en compte de l'endogénéité du travail
+
+:::
+
+---
+
+# Travail{.slide}
+
+<div>
+  <img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\travail.png" alt="Description de l'image">
+</div>
+
+---
+
+# Réussite{.slide}
+
+<div>
+<img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\reussite .png" alt="Description de l'image">
+</div>
+
+--- 
+
+# {.slide}
+
+::: {style="height: 110px;"}
+:::
+
+::: {style="text-align: center;"}
+<h2 style="font-size: 72px; margin-top: 50px;">
+
+Les modélisations économétriques.
+
+</h2>
+
+- Prise en compte de l'endogénéité du travail
+
+:::
+
+---
+
+# {.slide}
+
+<div>
+<img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\Bivarié.png" alt="Description de l'image">
+</div>
+
+---
+
+# {.slide}
+
+<div>
+<img src="C:\Users\AFOLABI\OneDrive\Documents\2 MECEN\3R\Recherche\data\Données\Présentation_finale\PPOR.png" alt="Description de l'image">
+</div>
+
+---
+
+# Conclusion{.slide}
+
+::: {style="text-align: center;"}
+
+
+- Concordance des résultats avec ceux des travaux anterieures.
+- Consolider et validiter des resultats.
+
+:::
