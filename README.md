@@ -23,7 +23,7 @@ Travail sur des données de **l'enquêtes de génération 2010** pour identifier
 
 ## Données
 
-Données de l'INSEE sur les parcours étudiants et leurs déterminants socio-démographiques et académiques.
+Données de l'enquêtes de génération 2010 sur les parcours étudiants et leurs déterminants socio-démographiques et académiques.
 
 ## Résultats
 
