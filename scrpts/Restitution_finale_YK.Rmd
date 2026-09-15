@@ -1,0 +1,587 @@
+---
+title: "Réusite et travail étudiant"
+author: "Nazifou & Youssef"
+date: "2023-12-01"
+output:
+  pdf_document:
+    toc: yes
+    keep_tex: yes
+    highlight: tango
+    df_print: kable
+    dev: png
+  html_document:
+    toc: yes
+    df_print: paged
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{graphicx}
+- \pagestyle{fancy}
+- \fancyhead{}
+- \fancyfoot[C]{\thepage}
+- \fancyfoot[R]{\textbf{\large Mécen 2}}
+- \fancyfoot[L]{\textbf{\large 3R}}
+geometry: margin=1.5cm
+fontsize: 12pt
+editors_options:
+  chunk_output_type: console
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r, include=FALSE, Packages}
+library(readr)
+library(knitr)
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+library(patchwork)
+library(gtsummary)
+library(stargazer)
+library(haven)
+library(questionr)
+library(GJRM)
+library(MASS)
+#library(kableExtra)
+```
+
+```{r , fonctions }
+cv <- function(x, y) {
+  t <- table(x, y)
+  if(any(t==0)){
+    t [t==0]<-0.0001 }
+  chi <- suppressWarnings(chisq.test(t))$statistic
+  cramer <- sqrt(chi / (length(x) * (min(dim(t)) - 1)))
+  cramer
+}
+
+cramer.matrix <- function(y, fill = TRUE){
+  col.y <- ncol(y)
+  V <- matrix(ncol = col.y, nrow = col.y)
+  for(i in 1:(col.y - 1)){
+    for(j in (i + 1):col.y){
+      V[i,j] <- cv(pull(y,i), pull(y,j))
+    }
+  }
+  diag(V) <- 1 
+  if (fill) {
+    for (i in 1:ncol(V)) {
+      V[, i] <- V[i, ]
+    }
+  }
+  colnames(V) <- names(y)
+  rownames(V) <- names(y)
+  V
+}
+```
+
+```{r}
+setwd("~/2 MECEN/3R/Recherche/data/Données")
+```
+
+## - Importation des données 
+
+```{r}
+data<- read_dta("indiv10_champcomp_v3.dta")
+#View(data)
+```
+
+## Premier echantillonnage 
+Selection des individus sortant du supérieur  (variable `super == 1`  sortant du superieur)
+```{r}
+data1 <- data[data$super == "1",]
+```
+
+
+## Sélécion des variables.
+
+```{r}
+Base1 <- data1[c(5, 17, 31,32, 75, 33, 34, 35, 36, 41, 76, 127, 365, 384, 396, 398, 442, 502, 530, 654, 680, 705, 714)]
+```
+
+```{r}
+summary(Base1)
+```
+
+
+```{r, include=FALSE}
+Base1 <- Base1 |> 
+  mutate(ca1 = as.factor(ca1),  # en couple
+         ca10c = as.factor(ca10c), # position professionnelle de la mère
+         ca9a = as.factor(ca9a),
+         ca10a= as.factor(ca10a), 
+         ca11 = as.factor(ca11), # niveau d’études du père
+         ca12 = as.factor(ca12),  # niveau d’études de la mère
+         ca13 = as.factor(ca13),   # frere et soeurs
+         ca20_13 = as.factor(ca20_13), # enfants
+         ca9c = as.factor(ca9c),  # position professionnelle du père
+         q1 = as.factor(q1),  # sexe
+         q50_13 =  as.factor(q50_13),  # ttavail etudiant
+         q7b = as.factor(q7b),  # reussite 
+         super = as.factor(super),  # sortant du supérieur
+         dis09 = as.factor(dis09), # discipline pour l’université
+         os2_3 = as.factor(os2_3),  # bourse perçue en cours d'études supérieure
+         phd = as.factor(phd),
+         q31 = as.factor(q31), # redoublement 
+         q35new = as.factor(q35new),   #  type de bac obtenu 
+         fraetr09 = as.factor(fraetr09),  # nationalité de l'individu 
+         ca0aregionf_13 = as.factor( ca0aregionf_13))  # region de residence 
+         
+```
+
+## Recodage et creation de nouvelles variables 
+
+```{r, include=FALSE}
+
+# variable dichotomique genre
+
+Base1$homme[Base1$q1 == "1"] <- 1
+Base1$homme[Base1$q1 == "2"] <- 0
+
+# Niveau d'étude de l'individu
+
+Base1$master[Base1$phd== "06I"|Base1$phd== "07I"|Base1$phd== "06T"|Base1$phd== "07T"|Base1$phd== "08"|Base1$phd== "09L"|Base1$phd== "09M"|Base1$phd== "10M"|Base1$phd== "10L"|Base1$phd== "11M"|Base1$phd== "11L"] <- 0 
+Base1$master[Base1$phd== "12M"|Base1$phd== "12L"|Base1$phd== "13M"|Base1$phd== "13L"|Base1$phd== "14M"|Base1$phd== "14L"|Base1$phd== "15"|Base1$phd== "16" ] <- 1
+table(Base1$master)
+
+# Travail binaire
+
+Base1$travail[Base1$q50_13 == "3"] <- 0  # non 
+Base1$travail[Base1$q50_13 == "1" |Base1$q50_13 == "2"] <- 1
+table(Base1$travail)
+
+# Travail ordonné
+
+Base1$travail_or[Base1$q50_13 == "1" ] <- 2   # +sieurs
+Base1$travail_or[Base1$q50_13 == "2" ] <- 1  # oui un seul taf
+Base1$travail_or[Base1$q50_13 == "3" ] <- 0
+table(Base1$travail_or)
+
+# Reussite 
+
+Base1$reussite [Base1$q7b == "2"] <- 0  # non 
+Base1$reussite[Base1$q7b == "1"] <- 1  # oui
+table(Base1$reussite)
+
+# Csp du père (ordonnée)
+
+Base1$Csp_p[Base1$ca9c == "1" |Base1$ca9c == "2"] <- 1 # inferieur
+Base1$Csp_p[Base1$ca9c == "3"] <- 2   #intermediaire
+Base1$Csp_p[Base1$ca9c == "4" |Base1$ca9c == "5"] <- 3  # superieur
+table(Base1$Csp_p)
+
+# Csp de la mère (ordonnée)
+
+Base1$Csp_m[Base1$ca10c == "1" |Base1$ca10c == "2"] <- 1 # inferieur
+Base1$Csp_m[Base1$ca10c == "3"] <- 2   #intermediaire
+Base1$Csp_m[Base1$ca10c == "4" |Base1$ca10c == "5"] <- 3  # superieur
+table(Base1$Csp_m)
+
+# Bourse d'étude
+
+Base1$bourse<- 0
+Base1$bourse[Base1$os2_3 == "1"]<- 1
+
+# Filière à l'université
+
+Base1$filiere[Base1$dis09 == "01" | Base1$dis09 == "02"] <- 1  # droit_eco_gestion
+Base1$filiere[Base1$dis09 == "03" | Base1$dis09 == "06"] <- 2  # Sce sociales
+Base1$filiere[Base1$dis09 == "09" | Base1$dis09 == "15"] <- 3  # sciences 
+Base1$filiere[Base1$dis09 == "04" | Base1$dis09 == "05"] <- 4  # lettres langues
+#Base1$filiere[Base1$dis09 == "11" | Base1$dis09 == "12" | Base1$dis09 == "13"] <- 5 #santé 
+Base1$filiere[Base1$dis09 == "14"] <- 5 # iut 
+Base1$filiere[Base1$dis09 == "" | Base1$dis09 == "32"|Base1$dis09 == "33"| Base1$dis09 == "11" | Base1$dis09 == "12" | Base1$dis09 == "13"] <- 6 # autres
+
+# frere et soeurs 
+
+Base1$freres_soeurs <- 0 # non 
+Base1$freres_soeurs[Base1$ca13== "1"] <-1  # oui 
+
+# enfants 
+
+Base1$enfant <- 0
+Base1$enfant[Base1$ca20_13 == "1"] <-1
+
+# Niv etudes du père 
+
+Base1$etude_sup_p <-0  #non 
+Base1$etude_sup_p[Base1$ca11 == "4"| Base1$ca11 == "5"| Base1$ca11 == "6"] <- 1 # oui 
+
+# Niv etudes de la mère 
+
+Base1$etude_sup_m <-0  #non 
+Base1$etude_sup_m[Base1$ca12 == "4"| Base1$ca12 == "5"| Base1$ca12 == "6"] <- 1 # oui 
+
+
+# Situation marital
+
+Base1$marier <- 0
+Base1$marier[Base1$ca1 == "1"] <-1 
+
+## Etranger 
+
+Base1$etranger<-1
+Base1$etranger[Base1$fraetr09 == "1"] <- 0 
+
+
+## Type de bac obtenu 
+
+Base1$bac[Base1$q36new == "1"] <- "Litteraire"
+Base1$bac[Base1$q36new == "2"] <- "Economie"
+Base1$bac[Base1$q36new == "3"] <- "Scientifique"
+Base1$bac[Base1$q35new == "2"] <- "Technoloqique"
+Base1$bac[Base1$q35new == "3"] <- "Professionnel"
+Base1$bac[Base1$q35new == "9"|Base1$q36new == "9" ] <- "NPR"
+```
+
+### creation de la variable (Au moins un des parents en études sup ) Ordonnée
+```{r}
+Base1$PM_sup[Base1$etude_sup_m == "1" & Base1$etude_sup_p == "1"] <- "les deux"
+Base1$PM_sup[Base1$etude_sup_m == "0" & Base1$etude_sup_p == "1"] <- "pere seulement"
+Base1$PM_sup[Base1$etude_sup_m == "1" & Base1$etude_sup_p == "0"] <- "mere seulement"
+Base1$PM_sup[Base1$etude_sup_m == "0" & Base1$etude_sup_p == "0"] <- " Aucun"
+```
+
+
+```{r}
+Base1$parents_sup <-0
+Base1$parents_sup [ Base1$PM_sup== "pere seulement"| Base1$PM_sup == "mere seulement"] <- 1
+Base1$parents_sup[Base1$PM_sup == "les deux"] <- 2
+```
+
+
+### Creation de la variable tx de chomage regionale 2006, 2007, 2011
+
+```{r}
+## tx de chômage 07
+Base1$txchoreg7[Base1$ca0aregionf_13 == "**"] <- "NA"  # outre mer + collectivité  (COM)
+Base1$txchoreg7[Base1$ca0aregionf_13 == "00"] <- "NA"  # territoire d'outre mer  (DOM)                     
+Base1$txchoreg7[Base1$ca0aregionf_13 == "ALSACE"] <- 7.1              
+Base1$txchoreg7[Base1$ca0aregionf_13 == "AQUITAINE"] <- 7.5              
+Base1$txchoreg7[Base1$ca0aregionf_13 == "AUVERGNE"] <- 7                   
+Base1$txchoreg7[Base1$ca0aregionf_13 == "BASSE-NORMANDIE"] <- 7.5                      
+Base1$txchoreg7[Base1$ca0aregionf_13 == "BOURGOGNE"] <- 6.9                          
+Base1$txchoreg7[Base1$ca0aregionf_13 == "BRETAGNE"] <- 6.6                     
+Base1$txchoreg7[Base1$ca0aregionf_13 == "CENTRE"] <- 6.7                         
+Base1$txchoreg7[Base1$ca0aregionf_13 == "CHAMPAGNE-ARDENNE"] <- 8.2                        
+Base1$txchoreg7[Base1$ca0aregionf_13 == "CORSE"] <- 8.5                         
+Base1$txchoreg7[Base1$ca0aregionf_13 == "FRANCHE-COMTÉ"] <- 7.3                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "HAUTE-NORMANDIE"] <- 8.5                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "ÎLE-DE-FRANCE"] <- 7.4                        
+Base1$txchoreg7[Base1$ca0aregionf_13 == "LANGUEDOC-ROUSSILLON"] <- 10.8                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "LIMOUSIN"] <- 6.4                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "LORRAINE"] <- 7.9                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "MIDI-PYRÉNÉES"] <- 7.9                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "NORD-PAS-DE-CALAIS"] <- 10.8                      
+Base1$txchoreg7[Base1$ca0aregionf_13 == "PAYS DE LA LOIRE"] <- 6.5                     
+Base1$txchoreg7[Base1$ca0aregionf_13 == "PICARDIE"] <- 8.8                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "POITOU-CHARENTES"] <- 7.3                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "PROVENCE-ALPES-CÔTE D'AZUR"] <- 9.4                       
+Base1$txchoreg7[Base1$ca0aregionf_13 == "RHÔNE-ALPES"] <- 6.7                     
+                          
+```
+
+
+```{r}
+## taux de chômage 06
+Base1$txchoreg6[Base1$ca0aregionf_13 == "**"] <- "NA"  # outre mer + collectivité  (COM)
+Base1$txchoreg6[Base1$ca0aregionf_13 == "00"] <- "NA"  # territoire d'outre mer  (DOM)                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "ALSACE"] <- 8              
+Base1$txchoreg6[Base1$ca0aregionf_13 == "AQUITAINE"] <-8.3              
+Base1$txchoreg6[Base1$ca0aregionf_13 == "AUVERGNE"] <- 7.6                  
+Base1$txchoreg6[Base1$ca0aregionf_13 == "BASSE-NORMANDIE"] <- 8.3                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "BOURGOGNE"] <- 7.7                        
+Base1$txchoreg6[Base1$ca0aregionf_13 == "BRETAGNE"] <- 7.2                  
+Base1$txchoreg6[Base1$ca0aregionf_13 == "CENTRE"] <- 7.6                        
+Base1$txchoreg6[Base1$ca0aregionf_13 == "CHAMPAGNE-ARDENNE"] <- 9.4                        
+Base1$txchoreg6[Base1$ca0aregionf_13 == "CORSE"] <- 9.2                        
+Base1$txchoreg6[Base1$ca0aregionf_13 == "FRANCHE-COMTÉ"] <- 8.2                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "HAUTE-NORMANDIE"] <- 9.4                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "ÎLE-DE-FRANCE"] <- 8.1                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "LANGUEDOC-ROUSSILLON"] <- 11.6                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "LIMOUSIN"] <- 6.9                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "LORRAINE"] <- 9.8                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "MIDI-PYRÉNÉES"] <- 8.5                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "NORD-PAS-DE-CALAIS"] <- 11.9                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "PAYS DE LA LOIRE"] <- 7.3                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "PICARDIE"] <-9.8                      
+Base1$txchoreg6[Base1$ca0aregionf_13 == "POITOU-CHARENTES"] <- 8.2                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "PROVENCE-ALPES-CÔTE D'AZUR"] <- 10.1                    
+Base1$txchoreg6[Base1$ca0aregionf_13 == "RHÔNE-ALPES"] <- 7.3                  
+
+```
+
+```{r}
+## taux de chômage 11
+Base1$txchoreg11[Base1$ca0aregionf_13 == "**"] <- "NA"  # outre mer + collectivité  (COM)
+Base1$txchoreg11[Base1$ca0aregionf_13 == "00"] <- "NA"  # territoire d'outre mer  (DOM)                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "ALSACE"] <-7.9              
+Base1$txchoreg11[Base1$ca0aregionf_13 == "AQUITAINE"] <- 8.6              
+Base1$txchoreg11[Base1$ca0aregionf_13 == "AUVERGNE"] <- 7.8                  
+Base1$txchoreg11[Base1$ca0aregionf_13 == "BASSE-NORMANDIE"] <- 8.3                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "BOURGOGNE"] <- 7.3                        
+Base1$txchoreg11[Base1$ca0aregionf_13 == "BRETAGNE"] <- 6.6                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "CENTRE"] <- 7.9                        
+Base1$txchoreg11[Base1$ca0aregionf_13 == "CHAMPAGNE-ARDENNE"] <-8.9                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "CORSE"] <- 8.6                        
+Base1$txchoreg11[Base1$ca0aregionf_13 == "FRANCHE-COMTÉ"] <- 7.9                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "HAUTE-NORMANDIE"] <- 9.7                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "ÎLE-DE-FRANCE"] <- 7.7                        
+Base1$txchoreg11[Base1$ca0aregionf_13 == "LANGUEDOC-ROUSSILLON"] <- 11.9                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "LIMOUSIN"] <- 7.9                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "LORRAINE"] <- 9                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "MIDI-PYRÉNÉES"] <- 8.7                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "NORD-PAS-DE-CALAIS"] <- 11.9                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "PAYS DE LA LOIRE"] <- 7.3                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "PICARDIE"] <- 10.3                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "POITOU-CHARENTES"] <- 8.2                      
+Base1$txchoreg11[Base1$ca0aregionf_13 == "PROVENCE-ALPES-CÔTE D'AZUR"] <- 10.3                    
+Base1$txchoreg11[Base1$ca0aregionf_13 == "RHÔNE-ALPES"] <- 7.7                    
+
+``` 
+
+### échantillon finale (selection individus de niveau licence- master seulement)
+```{r}
+base4<- Base1[Base1$phd=="06I"|Base1$phd== "07I"|Base1$phd== "06T"|Base1$phd== "07T"|Base1$phd== "08"|Base1$phd== "09L"|Base1$phd== "09M"|Base1$phd== "10M"|Base1$phd== "10L"|Base1$phd== "11M"|Base1$phd== "11L"|Base1$phd== "12M"|Base1$phd== "12L"|Base1$phd== "13M"|Base1$phd== "13L"|Base1$phd== "14M"|Base1$phd== "14L"|Base1$phd== "15"|Base1$phd== "16",]
+```
+
+
+```{r}
+base4 <- base4 >  
+  mutate(homme= as.factor(homme),
+         Csp_p = as.factor(Csp_p),
+         travail = as.factor(travail),
+         travail_or = as.numeric(travail_or),
+         reussite = as.factor(reussite),
+         master = as.factor(master),
+         Csp_m = as.factor(Csp_m),
+         bourse = as.factor(bourse),
+         filiere = as.factor(filiere),
+         freres_soeurs = as.factor(freres_soeurs),
+         enfant = as.factor(enfant),
+         parents_sup = as.factor(parents_sup),
+         etranger = as.factor(etranger),
+         bac = as.factor(bac),
+         marier = as.factor(marier),
+         ca9c = as.factor(ca9c),
+         ca10c = as.factor(ca10c),
+         ca9c = as.factor(ca9a),
+         ca10c = as.factor(ca10a),
+         txchoreg7 = as.numeric(txchoreg7),
+         txchoreg6 = as.numeric(txchoreg6),
+         txchoreg11 = as.numeric(txchoreg11))
+
+
+         #emploi_p = as.factor(emploi_p),
+         #emploi_m = as.factor(emploi_m))
+
+```
+
+### Base finale 
+
+Decoupage de l'age en classe
+
+```{r}
+#Base_fin$age_c <- cut(Base_fin$age10 , c(17,21, 25, 29, 34))
+#summary(Base_fin$age_c)
+```
+
+
+```{r}
+Base_fin <-base4[, -c(3:23)]
+Base_fin <-na.omit(Base_fin)
+summary(Base_fin)
+```
+
+sauvegarde 
+
+```{r}
+# Charger le package
+#library(foreign)
+
+# Sauvegarder votre base de données au format .dta
+#write.dta(Base_fin, "~/2 MECEN/3R/Recherche/data/Données/Base_finale2.dta")
+```
+# Yann KOSSI
+```{r}
+#library(kableExtra)
+ library(haven)
+Base_fin <- read_dta("~/Desktop/Sujets_3R/3R rmd, base/Base_finale2.dta")
+View(Base_fin)
+```
+
+```{r}
+ Base_fin$homme= as.factor( Base_fin$homme)
+ Base_fin$age_cat= as.factor(Base_fin$age_cat)
+ Base_fin$Csp_p = as.factor( Base_fin$Csp_p)
+ Base_fin$travail = as.factor( Base_fin$travail)
+ Base_fin$travail_or = as.numeric( Base_fin$travail_or)
+ Base_fin$reussite = as.factor( Base_fin$reussite)
+ Base_fin$master = as.factor( Base_fin$master)
+ Base_fin$Csp_m = as.factor( Base_fin$Csp_m)
+ Base_fin$bourse = as.factor( Base_fin$bourse)
+ Base_fin$filiere = as.factor( Base_fin$filiere)
+ Base_fin$freres_soeurs = as.factor( Base_fin$freres_soeurs)
+ Base_fin$enfant = as.factor(Base_fin$enfant)
+ Base_fin$parents_sup = as.factor( Base_fin$parents_sup)
+ Base_fin$etranger = as.factor( Base_fin$etranger)
+ Base_fin$bac = as.factor( Base_fin$bac)
+ Base_fin$marier = as.factor( Base_fin$marier)
+ #Base_fin$ca9c = as.factor( Base_fin$ca9c)
+ #Base_fin$ca10c = as.factor( Base_fin$ca10c)
+ #Base_fin$ca9c = as.factor( Base_fin$ca9a)
+ #Base_fin$ca10c = as.factor( Base_fin$ca10a)
+ Base_fin$txchoreg7 = as.numeric( Base_fin$txchoreg7)
+ Base_fin$txchoreg6 = as.numeric( Base_fin$txchoreg6)
+ Base_fin$txchoreg11 = as.numeric( Base_fin$txchoreg11)
+ #
+ 
+  Base_fin$ltxchoreg11<-log(Base_fin$txchoreg11)
+  Base_fin$ltxchoreg6<-log(Base_fin$txchoreg6)
+  Base_fin$ltxchoreg7<-log(Base_fin$txchoreg7)
+  
+  
+Base_fin$age_cat <- cut(Base_fin$age10 , c(17, 21, 25, 29, 34))
+summary(Base_fin$age_cat)
+```
+
+# B- Régressions 
+## Partie 1: Estimation sans contrôle d'endogeneité 
+
+
+### probit simple
+
+#### Travail binaire
+
+```{r}
+#PS1 <- glm(travail ~ age_c + homme + filiere + parents_sup,
+           #data = Base_fin, family=binomial(link=probit))
+#summary(PS1)
+# YK
+PS1 <- glm(travail ~ age_cat + homme + master + parents_sup + enfant,
+           data = Base_fin, family=binomial(link=probit))
+summary(PS1)
+
+```
+
+#### Travail ordonné 
+
+```{r}
+library(oglmx)
+#POR<-oglmx(travail_or ~ age_c + homme + master +parents_sup  + filiere +
+           #enfant, data = Base_fin,
+         #link="probit",constantMEAN = FALSE, constantSD = FALSE,delta=0,threshparam = NULL)
+#summary(POR)
+# YK
+POR<-oglmx(travail_or ~  age_cat + homme + master + parents_sup + enfant 
+         , data = Base_fin,
+         link="probit",constantMEAN = FALSE, constantSD = FALSE,delta=0,threshparam = NULL)
+summary(POR)
+
+```
+
+
+#### Reussite
+# Variable "enfant" n'a pas d'impact sur la réussité; donc un instrument. Nombre d'enfants disponible dans la base de données ?
+```{r binaire}
+PB <-glm(reussite ~ travail + age_cat + homme + master + filiere  + bac, data = Base_fin,
+            family=binomial(link=probit))
+summary(PB) 
+#stargazer(PB, type="text")
+```
+
+```{r ordonné}
+PB2<-glm(reussite ~ as.factor(travail_or) + age_cat + homme + master + filiere  + bac, data = Base_fin,
+            family=binomial(link=probit))
+summary(PB2)
+#stargazer(PB2, type="text")
+```
+
+```{r}
+stargazer(PB,PB2 , type = "text")
+```
+
+#### probit bivarié (jointe)
+
+```{r}
+# bivarié 
+PB <- gjrm(list( travail ~ age_cat + homme + master + parents_sup  + enfant,
+                reussite ~ age_cat + homme + master + filiere + bac),
+             data = Base_fin, margins = c("probit", "probit"), Model = "B")
+
+summary(PB)
+```
+
+theta = theta = -0.118(-0.245,-0.0187) correlation negative et significative
+
+**Verification** : Les test 
+
+```{r}
+library(GJRM)
+```
+
+#### Test tétrachorique
+```{r}
+PB0 <- gjrm(list(reussite ~ 1,
+                travail ~ 1),
+           data = Base_fin,
+           margins = c("probit", "probit"), Model = "B")
+summary(PB0)
+```
+0 pas dans IC = -0.26(-0.331,-0.205)  corrélation négative et significative.
+
+#### Test - Multiplicateur de Lagrange (modèle réduit)
+```{r}
+LM.bpm(list(reussite~ 1,
+            travail ~ 1), 
+       Base_fin, model = "B")
+```
+
+p-valeur =  2.714442e-08 < 0.05, rejet de $H_O$ 
+donc significative 
+
+**Conclusion**
+correlation entre le travail et la reussite.
+
+
+## Partie 1: Estimation avec contrôle d'endogeneité du travail
+
+### Probit bivarié recursif 
+```{r recursif}
+
+PBR <- gjrm(list(travail ~ age_cat + homme  + master + parents_sup + enfant,
+                reussite ~ travail + age_cat + homme + master + filiere + bac),
+             data = Base_fin,
+             margins = c("probit", "probit"),
+             Model = "B")
+
+summary(PBR)
+```
+theta = -0.355(-0.927,0.766) pas de correlation .
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
