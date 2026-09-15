@@ -1,0 +1,1045 @@
+---
+title: "3R_stats"
+author: "Nazifou"
+date: "2024-03-22"
+output:
+  pdf_document:
+    toc: yes
+    keep_tex: yes
+    highlight: tango
+    df_print: kable
+    dev: png
+  html_document:
+    toc: yes
+    df_print: paged
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{graphicx}
+- \pagestyle{fancy}
+- \fancyhead{}
+- \fancyfoot[C]{\thepage}
+- \fancyfoot[R]{\textbf{\large Mécen 2}}
+- \fancyfoot[L]{\textbf{\large 3R}}
+geometry: margin=1.5cm
+fontsize: 12pt
+editors_options:
+  chunk_output_type: console
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE, Packages}
+library(readr)
+library(knitr)
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(stringr)
+library(corrplot)
+library(patchwork)
+library(gtsummary)
+library(stargazer)
+library(haven)
+library(questionr)
+library(GJRM)
+library(MASS)
+#library(kableExtra)
+```
+
+
+```{r , fonctions }
+cv <- function(x, y) {
+  t <- table(x, y)
+  if(any(t==0)){
+    t [t==0]<-0.0001 }
+  chi <- suppressWarnings(chisq.test(t))$statistic
+  cramer <- sqrt(chi / (length(x) * (min(dim(t)) - 1)))
+  cramer
+}
+
+cramer.matrix <- function(y, fill = TRUE){
+  col.y <- ncol(y)
+  V <- matrix(ncol = col.y, nrow = col.y)
+  for(i in 1:(col.y - 1)){
+    for(j in (i + 1):col.y){
+      V[i,j] <- cv(pull(y,i), pull(y,j))
+    }
+  }
+  diag(V) <- 1 
+  if (fill) {
+    for (i in 1:ncol(V)) {
+      V[, i] <- V[i, ]
+    }
+  }
+  colnames(V) <- names(y)
+  rownames(V) <- names(y)
+  V
+}
+```
+
+
+```{r}
+setwd("~/2 MECEN/3R/Recherche/data/Données")
+```
+
+
+## - Importation des données 
+
+```{r}
+data<- read_dta("indiv10_champcomp_v3.dta")
+#View(data)
+```
+
+## Premier echantillonnage 
+Selection des individus sortant du supérieur  (variable `super == 1`  sortant du superieur)
+
+```{r}
+data1 <- data[data$super == "1",]
+```
+
+
+## Sélécion des variables.
+
+```{r}
+Base1 <- data1[c(5, 17, 31,32, 75, 33, 34, 35, 36, 41, 76, 127, 365, 384, 396, 398, 399,442, 502, 530, 654, 680, 705, 714)]
+```
+
+```{r}
+summary(Base1)
+```
+
+
+```{r, include=FALSE}
+Base1 <- Base1 |> 
+  mutate(ca1 = as.factor(ca1),  # en couple
+         ca10c = as.factor(ca10c), # position professionnelle de la mère
+         ca9a = as.factor(ca9a),
+         ca10a= as.factor(ca10a), 
+         ca11 = as.factor(ca11), # niveau d’études du père
+         ca12 = as.factor(ca12),  # niveau d’études de la mère
+         ca13 = as.factor(ca13),   # frere et soeurs
+         ca20_13 = as.factor(ca20_13), # enfants
+         ca9c = as.factor(ca9c),  # position professionnelle du père
+         q1 = as.factor(q1),  # sexe
+         q50_13 =  as.factor(q50_13),  # ttavail etudiant
+         q7b = as.factor(q7b),  # reussite 
+         super = as.factor(super),  # sortant du supérieur
+         dis09 = as.factor(dis09), # discipline pour l’université
+         os2_3 = as.factor(os2_3),  # bourse perçue en cours d'études supérieure
+         phd = as.factor(phd),
+         q31 = as.factor(q31), # redoublement
+         q38a = as.factor(q38a), # mention 
+         q35new = as.factor(q35new),   #  type de bac obtenu 
+         fraetr09 = as.factor(fraetr09),  # nationalité de l'individu 
+         ca0aregionf_13 = as.factor( ca0aregionf_13))  # region de residence 
+         
+```
+
+## Recodage et creation de nouvelles variables 
+
+```{r, include=FALSE}
+
+# variable dichotomique genre
+
+Base1$homme[Base1$q1 == "1"] <- 1
+Base1$homme[Base1$q1 == "2"] <- 0
+
+# Niveau d'étude de l'individu
+
+Base1$master[Base1$phd== "06I"|Base1$phd== "07I"|Base1$phd== "06T"|Base1$phd== "07T"|Base1$phd== "08"|Base1$phd== "09L"|Base1$phd== "09M"|Base1$phd== "10M"|Base1$phd== "10L"|Base1$phd== "11M"|Base1$phd== "11L"] <- 0 
+Base1$master[Base1$phd== "12M"|Base1$phd== "12L"|Base1$phd== "13M"|Base1$phd== "13L"|Base1$phd== "14M"|Base1$phd== "14L"|Base1$phd== "15"|Base1$phd== "16" ] <- 1
+table(Base1$master)
+
+# Travail binaire
+
+Base1$travail[Base1$q50_13 == "3"] <- 0  # non 
+Base1$travail[Base1$q50_13 == "1" |Base1$q50_13 == "2"] <- 1
+table(Base1$travail)
+
+# Travail ordonné
+
+Base1$travail_or[Base1$q50_13 == "1" ] <- 2   # +sieurs
+Base1$travail_or[Base1$q50_13 == "2" ] <- 1  # oui un seul taf
+Base1$travail_or[Base1$q50_13 == "3" ] <- 0
+table(Base1$travail_or)
+
+# Reussite 
+
+Base1$reussite [Base1$q7b == "2"] <- 0  # non 
+Base1$reussite[Base1$q7b == "1"] <- 1  # oui
+table(Base1$reussite)
+
+# Csp du père (ordonnée)
+
+Base1$Csp_p[Base1$ca9c == "1" |Base1$ca9c == "2"] <- 1 # inferieur
+Base1$Csp_p[Base1$ca9c == "3"] <- 2   #intermediaire
+Base1$Csp_p[Base1$ca9c == "4" |Base1$ca9c == "5"] <- 3  # superieur
+table(Base1$Csp_p)
+
+# Csp de la mère (ordonnée)
+
+Base1$Csp_m[Base1$ca10c == "1" |Base1$ca10c == "2"] <- 1 # inferieur
+Base1$Csp_m[Base1$ca10c == "3"] <- 2   #intermediaire
+Base1$Csp_m[Base1$ca10c == "4" |Base1$ca10c == "5"] <- 3  # superieur
+table(Base1$Csp_m)
+
+# Bourse d'étude
+
+Base1$bourse<- 0
+Base1$bourse[Base1$os2_3 == "1"]<- 1
+
+# Filière à l'université
+
+Base1$filiere[Base1$dis09 == "01" | Base1$dis09 == "02"] <- 1  # droit_eco_gestion
+Base1$filiere[Base1$dis09 == "03" | Base1$dis09 == "06"] <- 2  # Sce sociales
+Base1$filiere[Base1$dis09 == "09" | Base1$dis09 == "15"] <- 3  # sciences 
+Base1$filiere[Base1$dis09 == "04" | Base1$dis09 == "05"] <- 4  # lettres langues
+#Base1$filiere[Base1$dis09 == "11" | Base1$dis09 == "12" | Base1$dis09 == "13"] <- 5 #santé 
+Base1$filiere[Base1$dis09 == "14"] <- 5 # iut 
+Base1$filiere[Base1$dis09 == "" | Base1$dis09 == "32"|Base1$dis09 == "33"| Base1$dis09 == "11" | Base1$dis09 == "12" | Base1$dis09 == "13"] <- 6 # autres
+
+# frere et soeurs 
+
+Base1$freres_soeurs <- 0 # non 
+Base1$freres_soeurs[Base1$ca13== "1"] <-1  # oui 
+
+# enfants 
+
+Base1$enfant <- 0
+Base1$enfant[Base1$ca20_13 == "1"] <-1
+
+# Niv etudes du père 
+
+Base1$etude_sup_p <-0  #non 
+Base1$etude_sup_p[Base1$ca11 == "4"| Base1$ca11 == "5"| Base1$ca11 == "6"] <- 1 # oui 
+
+# Niv etudes de la mère 
+
+Base1$etude_sup_m <-0  #non 
+Base1$etude_sup_m[Base1$ca12 == "4"| Base1$ca12 == "5"| Base1$ca12 == "6"] <- 1 # oui 
+
+
+# Situation marital
+
+Base1$marier <- 0
+Base1$marier[Base1$ca1 == "1"] <-1 
+
+## Etranger 
+
+Base1$etranger<-1
+Base1$etranger[Base1$fraetr09 == "1"] <- 0  ## français 
+
+
+## bac obtenu 
+
+Base1$bac[Base1$q35new == "1"] <- "Generale"
+Base1$bac[Base1$q35new == "2"] <- "Technologique"
+Base1$bac[Base1$q35new == "3"] <- "Professionnel"
+#Base1$bac[Base1$q35new == "9"] <- "NPR"
+
+
+## age catégorielle 
+Base1$age_c <- cut(Base1$age10 , c(17,21, 25, 29, 34))
+
+## q31 redoublement 
+
+#Base1$redoublement[Base1$q31 == "1"] <- "oui"
+#Base1$redoublement[Base1$q31 == "2"|Base1$q31 == "3" ] <- "Non"
+
+
+## mention Bac 
+#Base1$mention_bac[Base1$q38a == "1"|Base1$q38a == "5"] <- "Non"
+#Base1$mention_bac[Base1$q38a == "2"] <- "AB"
+#Base1$mention_bac[Base1$q38a == "3" |Base1$q38a == "4"] <- "B"
+#Base1$mention_bac[] <- "TB"
+#Base1$mention_bac[] <- "NPR"
+
+## mention binaire 
+#Base1$mention[Base1$q38a == "1"|Base1$q38a == "5" ] <- "Non"
+#Base1$mention[Base1$q38a == "2"|Base1$q38a == "3"|Base1$q38a == "4"] <- "AB"
+```
+
+
+### creation de la variable (Au moins un des parents en études sup ) Ordonnée
+```{r}
+Base1$PM_sup[Base1$etude_sup_m == "1" & Base1$etude_sup_p == "1"] <- "les deux"
+Base1$PM_sup[Base1$etude_sup_m == "0" & Base1$etude_sup_p == "1"] <- "pere seulement"
+Base1$PM_sup[Base1$etude_sup_m == "1" & Base1$etude_sup_p == "0"] <- "mere seulement"
+Base1$PM_sup[Base1$etude_sup_m == "0" & Base1$etude_sup_p == "0"] <- " Aucun"
+```
+
+
+```{r}
+Base1$parents_sup <-0
+Base1$parents_sup [ Base1$PM_sup== "pere seulement"| Base1$PM_sup == "mere seulement"] <- 1
+Base1$parents_sup[Base1$PM_sup == "les deux"] <- 2
+```
+
+### échantillon finale (selection individus de niveau licence- master seulement)
+```{r}
+base4<- Base1[Base1$phd=="06I"|Base1$phd== "07I"|Base1$phd== "06T"|Base1$phd== "07T"|Base1$phd== "08"|Base1$phd== "09L"|Base1$phd== "09M"|Base1$phd== "10M"|Base1$phd== "10L"|Base1$phd== "11M"|Base1$phd== "11L"|Base1$phd== "12M"|Base1$phd== "12L"|Base1$phd== "13M"|Base1$phd== "13L"|Base1$phd== "14M"|Base1$phd== "14L"|Base1$phd== "15"|Base1$phd== "16",]
+```
+
+
+```{r}
+base4 <- base4 |>  
+  mutate(homme= as.factor(homme),
+         age_c = as.factor(age_c),
+         Csp_p = as.factor(Csp_p),
+         travail = as.factor(travail),
+         travail_or = as.numeric(travail_or),
+         reussite = as.factor(reussite),
+         master = as.factor(master),
+         Csp_m = as.factor(Csp_m),
+         bourse = as.factor(bourse),
+         filiere = as.factor(filiere),
+         freres_soeurs = as.factor(freres_soeurs),
+         enfant = as.factor(enfant),
+         parents_sup = as.factor(parents_sup),
+         etranger = as.factor(etranger),
+         bac = as.factor(bac),
+         marier = as.factor(marier),
+         ca9c = as.factor(ca9c),
+         ca10c = as.factor(ca10c),
+         ca9c = as.factor(ca9a),
+         ca10a = as.factor(ca10a),
+         bac = as.factor(bac))
+
+```
+
+### Base finale 
+
+```{r}
+Base_fin <-base4[, -c(1:24)]
+Base_fin <-na.omit(Base_fin)
+Base_fin <-Base_fin[, -c(6,7,8,10,12,13,14,18)]
+summary(Base_fin)
+```
+
+
+# renomme les variables 
+```{r}
+Base_fin$homme <- fct_recode(Base_fin$homme, "Non"= "0", "Oui"= "1")
+
+Base_fin$master <- fct_recode(Base_fin$master, "Non"= "0", "Oui"= "1")
+
+Base_fin$travail <- fct_recode(Base_fin$travail, "Non"= "0", "Oui"= "1")
+
+Base_fin$reussite <- fct_recode(Base_fin$reussite, "Non"= "0", "Oui"= "1")
+
+Base_fin$enfant <- fct_recode(Base_fin$enfant, "Non"= "0", "Oui"= "1")
+
+Base_fin$etranger <- fct_recode(Base_fin$etranger, "Non"= "0", "Oui"= "1") 
+
+#Base_fin$travail_or <- fct_recode(Base_fin$travail_or, "Non"= "0", "Oui"= "1", ""= "2")
+
+Base_fin$parents_sup <- fct_recode(Base_fin$parents_sup, "Aucun"= "0", "Au_moins_un"= "1", "Les_deux"= "2")
+
+Base_fin$filiere <- fct_recode(Base_fin$filiere,
+                               "droit_eco_ges"= "1",
+                               "Sce sociales"= "2",
+                               "Sciences"= "3",
+                               "lettres_langues"= "4",
+                               "Iut"= "5",
+                               "Autres"= "6")
+```
+
+
+# stats descriptives 
+
+## Couleurs 
+```{r}
+# Utilisation de différentes palettes de couleurs
+couleurs_rainbow <- rainbow(length(table(Base_fin$filiere)))
+couleurs_heat <- heat.colors(length(table(Base_fin$filiere)))
+couleurs_topo <- topo.colors(length(table(Base_fin$filiere)))
+couleurs_terrain <- terrain.colors(length(table(Base_fin$filiere)))
+couleurs_cm <- cm.colors(length(table(Base_fin$filiere)))
+
+# Utilisation des palettes de couleurs ColorBrewer (nécessite le package RColorBrewer)
+#library(RColorBrewer)
+#couleurs_colorbrewer <- brewer.pal(length(table(Base_fin$filiere)), "Set1")
+
+# Utilisation des palettes de couleurs viridis (nécessite le package viridis)
+#library(viridis)
+#couleurs_viridis <- viridis(length(table(Base_fin$filiere)))
+
+couleurs_cm1 <- cm.colors(length(table(Base_fin$bac)))
+couleurs_terrain1 <- terrain.colors(length(table(Base_fin$bac)))
+couleurs_rainbow1 <- rainbow(length(table(Base_fin$bac)))
+```
+
+```{r summary}
+tbl_summary(Base_fin)
+```
+
+```{r}
+df <- data.frame(
+  Variables = c("Age", "genre", "Niveau d'étude", "Filière", "Travail étudiant"),
+  Auteurs = c("Marsh et Kleitman 2005", "Beffy et al 2010", "Sabia (2009)", "Rothstein
+(2007)","g"),
+  `Effet sur le Travail` = rep("...", 5),
+  `Effet sur la réussite` = rep("...", 5)
+)
+
+kable(df, "html", row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+```
+
+
+### tab croisée
+#### Réussite
+
+```{r}
+Base_fin |>
+  tbl_summary(
+    include = c(master),
+    by = reussite,
+    percent = "row"
+  ) |> 
+  add_overall(last = TRUE) 
+```
+
+```{r}
+Base_fin |>
+  tbl_summary(
+    include = c(filiere),
+    by = reussite,
+    percent = "row"
+  ) |> 
+  add_overall(last = TRUE) 
+```
+
+#### Travail
+
+```{r}
+Base_fin |>
+  tbl_summary(
+    include = c(master),
+    by = travail,
+    percent = "row"
+  ) |> 
+  add_overall(last = TRUE) 
+```
+
+```{r}
+Base_fin |>
+  tbl_summary(
+    include = c(filiere),
+    by = travail,
+    percent = "row"
+  ) |> 
+  add_overall(last = TRUE) 
+```
+
+### Graph
+```{r}
+# Calculer les fréquences
+frequences <- table(Base_fin$parents_sup) / length(Base_fin$parents_sup)
+
+# Créer le diagramme à barres
+bp <- barplot(frequences, main = "Diagramme de parents_sup", col = couleurs_topo )
+
+# Ajouter les fréquences sur les barres
+#text(x = bp, y = frequences, label = paste0(round(frequences * 100, 1), "%"), pos = 3, cex = 0.8, col = "black")
+text(x = bp, y = frequences, label = paste0(round(frequences * 100, 1), "%"), pos = 1, cex = 0.8, col = "black")
+
+```
+
+
+```{r}
+# Calculer les fréquences
+frequences <- table(Base_fin$filiere) / length(Base_fin$filiere)
+
+# Créer le diagramme à barres
+bp <- barplot(frequences, main = "Diagramme de Filière", col = couleurs_cm)
+
+# Ajouter les fréquences sur les barres
+#text(x = bp, y = frequences, label = paste0(round(frequences * 100, 1), "%"), pos = 3, cex = 0.8, col = "black")
+text(x = bp, y = frequences, label = paste0(round(frequences * 100, 1), "%"), pos = 1, cex = 0.8, col = "black")
+```
+
+```{r}
+# Calculer les fréquences
+frequences <- table(Base_fin$filiere) / length(Base_fin$filiere)
+
+# Créer le diagramme à barres avec coord_flip()
+bp <- barplot(frequences, main = "Diagramme de Filière", horiz = TRUE, col = couleurs_cm)
+
+# Ajouter les fréquences sur les barres
+text(x = frequences, y = bp, label = paste0(round(frequences * 100, 1), "%"), pos = 4, cex = 0.8, col = "black")
+
+```
+
+### filiere 
+
+```{r}
+
+frequences <- table(Base_fin$filiere) / length(Base_fin$filiere)
+tab1 <- data.frame(filiere = c('droit_eco_ges', 'Sce sociales', 'Sciences',
+                              'lettres_langues', 'Iut', 'Autres'),
+                  total= c(422, 411, 386, 137, 112, 1080),
+                  frequences = c(0.16562009,0.16130298, 0.15149137,
+                                 0.05376766, 0.04395604, 0.42386185)
+                  )
+```
+
+
+```{r}
+tab1 |> 
+  ggplot(aes(x = reorder(filiere, frequences), y = frequences,fill = filiere ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2, size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5))+
+  scale_fill_manual(values = couleurs_rainbow)
+  
+```
+
+### bac 
+```{r}
+freq_bac <- table(Base_fin$bac) / length(Base_fin$bac)
+tab2 <- data.frame(bac = c('Générale', 'Professionnel', 'Technologique'),
+                  frequences = c(0.72566719,0.03375196,0.24058085)
+                  )
+```
+
+```{r}
+tab2 |> 
+  ggplot(aes(x = reorder(bac, frequences), y = frequences,fill = bac ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2, size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_rainbow1)
+  
+```
+
+
+```{r}
+# Calculer les fréquences des bacs
+freq_bac <- table(Base_fin$bac) / length(Base_fin$bac)
+
+# Créer le dataframe tab2 à partir des fréquences calculées
+tab74 <- data.frame(
+  bac = names(freq_bac),
+  frequences = as.numeric(freq_bac)
+)
+
+# Afficher le dataframe tab2
+print(tab74)
+
+```
+
+#### parents_sup 
+
+```{r}
+
+freq_Ps <- table(Base_fin$parents_sup) / length(Base_fin$parents_sup)
+tab3 <- data.frame(
+  parents_sup = names(freq_Ps),
+  frequences = as.numeric(freq_Ps)
+)
+```
+
+```{r}
+couleurs_rainbow3 <- rainbow(length(table(Base_fin$parents_sup)))
+tab3 |> 
+  ggplot(aes(x = reorder(parents_sup, frequences), y = frequences,fill = parents_sup ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2, size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_rainbow3)
+  
+```
+
+### age 
+```{r}
+freq_age <- table(Base_fin$age_c ) / length(Base_fin$age_c)
+tab4 <- data.frame(
+  age_c = names(freq_age),
+  frequences = as.numeric(freq_age)
+)
+```
+
+
+```{r}
+couleurs_heat4 <- rainbow(length(table(Base_fin$age_c)))
+tab4 |> 
+  ggplot(aes(x = reorder(age_c, frequences), y = frequences,fill = age_c ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2, size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_heat4)
+  
+```
+
+## Graph  
+```{r}
+
+par(mfrow=c(2,2))
+# filière
+graph1 <- tab1 |>
+  ggplot(aes(x = reorder(filiere, frequences), y = frequences,fill = filiere ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2,
+        size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.5))+
+  scale_fill_manual(values = couleurs_topo)
+
+
+
+#Bac 
+couleurs_rainbow1 <- rainbow(length(table(Base_fin$bac)))
+
+graph2 <- tab2 |> 
+  ggplot(aes(x = reorder(bac, frequences), y = frequences,fill = bac ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2,
+            size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_rainbow1)
+
+
+# parents_sup
+couleurs_rainbow3 <- rainbow(length(table(Base_fin$parents_sup)))
+graph3 <- tab3 |> 
+  ggplot(aes(x = reorder(parents_sup, frequences), y = frequences,fill = parents_sup ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2,
+            size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_rainbow3)
+
+
+#age 
+couleurs_heat4 <- rainbow(length(table(Base_fin$age_c)))
+graph4 <- tab4 |> 
+  ggplot(aes(x = reorder(age_c, frequences), y = frequences,fill = age_c ))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(frequences * 100, 1), "%")), hjust = -0.2, size = 3, color = "black") +
+  coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "",
+       caption = "")+
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.95))+
+  scale_fill_manual(values = couleurs_heat4)
+
+```
+
+
+```{r}
+graph1 + graph2
+```
+
+```{r}
+graph3 + graph4
+```
+
+
+
+
+
+### essai graph
+
+```{r}
+library(ggplot2)
+
+# Création de la table croisée
+cross_tab <- table(Base_fin$travail, Base_fin$reussite)
+
+# Conversion de la table en dataframe
+cross_tab_df <- as.data.frame(cross_tab)
+
+# Renommer les colonnes pour la clarté
+names(cross_tab_df) <- c("Travail", "Reussite", "Count")
+
+# Créer le graphique
+ggplot(cross_tab_df, aes(x = Travail, y = Reussite, fill = Count)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(x = "Travail", y = "Reussite", title = "Heatmap de la table croisée Travail vs Reussite")
+
+```
+
+
+
+
+
+# matrice de correlation 
+
+
+```{r}
+library(corrplot)
+corrplot(cramer.matrix(Base_fin[,-c(4,6,9,10,11)]), type = "upper", diag = FALSE, tl.col = "black", addCoef.col = "black")
+
+```
+
+
+# ACM 
+
+```{r}
+library(factoextra)
+library(FactoMineR)
+library(Factoshiny)
+library(explor)
+```
+
+
+```{r}
+Factoshiny(Base_fin)
+```
+
+```{r}
+library(factoextra)
+
+# Exécution de l'analyse HCPC
+res.MCA <- MCA(Base_fin, quanti.sup = c(4), graph = FALSE)
+res.HCPC <- HCPC(res.MCA, nb.clust = 2, consol = TRUE, graph = T)
+```
+
+
+```{r}
+# Visualisation de l'arbre hiérarchique avec couleurs pour chaque classe
+fviz_dend(res.HCPC$dendrogram, k_colors = 4, rect = TRUE, rect_fill = TRUE,
+          main = "Arbre hiérarchique avec couleurs pour chaque classe")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Régressions
+
+**Verification** : Les test 
+
+```{r}
+library(GJRM)
+```
+
+#### Test tétrachorique
+```{r}
+PB0 <- gjrm(list(reussite ~ 1,
+                travail ~ 1),
+           data = Base_fin,
+           margins = c("probit", "probit"), model = "B")
+summary(PB0)
+```
+0 pas dans IC = -0.261(-0.342,-0.18)  corrélation négative et significative.
+
+#### Test - Multiplicateur de Lagrange (modèle réduit)
+```{r}
+LM.bpm(list(reussite~ 1,
+            travail ~ 1), 
+       Base_fin, model = "B")
+```
+
+p-valeur =  2.331373e-08 < 0.05, rejet de $H_O$ 
+donc significative 
+
+**Conclusion**
+correlation entre le travail et la reussite.
+
+### Travail 
+#### probit (W)
+```{r}
+reg_travail <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/reg_travail.rds.")
+summary(reg_travail)
+```
+
+```{r}
+stargazer(reg_travail, type="text")
+```
+
+####  probit ordonné
+
+```{r}
+reg_travail_or <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/reg_travailor.rds")
+```
+
+```{r}
+reg_travail_or$coefficients
+```
+
+```{r}
+reg_travail_or$coefficients
+```
+
+
+### Reussite 
+#### reussite-travail
+
+```{r}
+reussite_travail <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/reussite_travail.rds")
+summary(reussite_travail)
+```
+
+#### reussite-travail_or
+
+```{r}
+reussite_travail_or <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/reussite_travail_or.rds")
+summary(reussite_travail_or)
+```
+
+
+```{r}
+stargazer(reussite_travail,reussite_travail_or, type="text")
+```
+
+### Probit bivarié récursif 
+
+```{r}
+PBR <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/reg_taf_recur.rds")
+summary(PBR)
+```
+
+```{r}
+#stargazer(PBR, type="text")
+```
+
+### Estimation jointe 
+#### probit ordonné
+```{r}
+POR <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/travailor_jointe.rds")
+```
+
+```{r}
+summary(POR)
+```
+
+### probit 
+
+
+```{r}
+PB2 <- readRDS("~/2 MECEN/3R/Recherche/data/Données/3R_estimations_save/pred_reussite.rds")
+summary(PB2)
+```
+
+
+
+
+
+
+
+
+
+
+### probit simple
+
+#### Travail binaire
+
+```{r}
+#PS1 <- glm(travail ~ age_c + homme + filiere + parents_sup,
+           #data = Base_fin, family=binomial(link=probit))
+#summary(PS1)
+# YK
+PS1b <- glm(travail ~ age_c + homme + master + parents_sup + enfant + etranger,
+           data = Base_fin, family=binomial(link=probit))
+summary(PS1b)
+
+```
+###### effet marginal 
+```{r}
+library(jtools)
+library(margins)
+```
+
+```{r}
+export_summs(PS1b, )
+```
+
+
+#### Travail ordonné 
+
+```{r}
+library(oglmx)
+#POR<-oglmx(travail_or ~ age_c + homme + master +parents_sup  + filiere +
+           #enfant, data = Base_fin,
+         #link="probit",constantMEAN = FALSE, constantSD = FALSE,delta=0,threshparam = NULL)
+#summary(POR)
+# YK
+POR_p<-oglmx(travail_or ~  age_c + homme + master + parents_sup + enfant 
+         , data = Base_fin,
+         link="probit",constantMEAN = FALSE, constantSD = FALSE,delta=0,threshparam = NULL)
+summary(POR_p)
+
+```
+
+### effets marginals 
+```{r}
+margins.oglmx(POR_p, atmeans= TRUE, AME=FALSE, ascontinuous = TRUE)
+```
+
+```{r}
+POR_p$allparams
+```
+
+
+## Reussite 
+
+```{r binaire}
+PBp <-glm(reussite ~  travail + age_c + homme + master + filiere  + bac + etranger,
+          data = Base_fin,
+            family=binomial(link=probit))
+summary(PBp) 
+#stargazer(PB, type="text")
+```
+
+```{r ordonné}
+PB2p<-glm(reussite ~ as.factor(travail_or) + age_c + homme + 
+            master + filiere + bac + etranger, data = Base_fin,
+            family=binomial(link=probit))
+summary(PB2p)
+#stargazer(PB2p, type="text")
+```
+
+### Probit bivarié recursif 
+```{r recursif}
+
+PBR2 <- gjrm(list(travail ~ age_c + homme  + master+ parents_sup +
+                   enfant + etranger ,
+                reussite ~ travail + age_c + homme + master + filiere +
+                  bac + etranger),
+             data = Base_fin,
+             margins = c("probit", "probit"),
+             model = "B")
+
+summary(PBR2)
+```
+
+##### travail binaire 
+```{r}
+margins(PS1b)
+```
+
+
+####### reussite - travail binaire 
+```{r}
+margins(PBp)
+```
+
+###### reussite - travail ordonné 
+```{r}
+margins(PB2p)
+```
+
+###### bivarié récursif 
+
+```{r}
+margins(PBR2)
+```
+
+#### probit - probit ordonné 
+
+### travail ordonnée 
+```{r}
+library(MASS)
+
+POR1<-polr(as.factor(travail_or)~ age_c + homme + master + parents_sup + enfant + etranger,
+          data = Base_fin, Hess = TRUE, method="probit")
+
+summary(POR1)
+
+#seul parents sup significative 
+# la diff n'est pas significative 
+```
+
+```{r}
+Base_fin$pred<-predict(POR1,type="probs")
+summary(Base_fin$pred[,"0"])
+summary(Base_fin$pred[,"1"])
+summary(Base_fin$pred[,"2"])
+```
+
+```{r}
+pred_reussite<- glm(reussite ~ pred[,"1"]+pred[,"2"] + age_c + homme + master+ filiere +bac + etranger,
+           data=Base_fin, family = binomial(link = probit))
+
+summary(pred_reussite)
+```
+
+
+
+```{r}
+library(margins)
+margins(POR1)
+```
+
+```{r}
+margins(pred_reussite)
+```
+
+```{r}
+margins(pred_reussite$formula , type = "response")
+```
+
+
+verification 
+
+
